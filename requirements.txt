@@ -1,0 +1,5 @@
+numpy
+scipy
+scipy-stubs
+matplotlib
+cupy-cuda13x
