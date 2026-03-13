@@ -226,6 +226,8 @@ def ES_gpu(
     pop = init_pop(mu, wordlength, order, n_digits)
     evaluator = FIRBatchEvaluatorGPU(order, worN, target, wordlength, mode)
 
+    best_hist = []
+
     for _ in range(n_generations):
         offspring = []
         for _ in range(lam):
@@ -241,8 +243,9 @@ def ES_gpu(
         else:
             F = evaluator.batch_fitness(offspring)
             pop = selection(offspring, F, mu)
+        best_hist.append(pop[0])
 
     # final best
     F_final = evaluator.batch_fitness(pop)
     best = pop[F_final.argmax()]
-    return best, pop
+    return best, best_hist

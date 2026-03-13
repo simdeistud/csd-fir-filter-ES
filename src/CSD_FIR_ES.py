@@ -15,7 +15,6 @@ class CSDIndividual:
         self.order = order
         self.n_digits = n_digits
         if genome is None:
-            # initialize random CSD genome
             self.genome = []
         else:
             if len(genome) != wordlength * order:
@@ -227,6 +226,8 @@ def ES(
     # --- 1. Initialize μ parents ---
     pop = init_pop(mu, wordlength, order, n_digits)
 
+    best_hist = []
+
     # --- 2. Evolution loop ---
     for _ in range(n_generations):
 
@@ -250,7 +251,8 @@ def ES(
         else:
             # (μ, λ)-ES: only offspring compete
             pop = selection(offspring, mu, fit, target, mode)
+        best_hist.append(pop[0])
 
     # --- Return best solution ---
     best = selection(pop, 1, fit, target, mode)[0]
-    return best, pop
+    return best, best_hist

@@ -220,6 +220,8 @@ def ES_parallel(
 ):
     pop = init_pop(mu, wordlength, order, n_digits)
 
+    best_hist = []
+
     with Pool(n_workers) as pool:
 
         for _ in range(n_generations):
@@ -246,6 +248,7 @@ def ES_parallel(
                 F = pool.map(_eval, [(ind, target, mode) for ind in offspring])
                 idx = np.argsort(F)[::-1][:mu]
                 pop = [offspring[i] for i in idx]
+        best_hist.append(pop[0])
 
     best = max(pop, key=lambda ind: fit(ind, target, mode))
-    return best, pop
+    return best, best_hist
