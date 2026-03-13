@@ -14,6 +14,7 @@ class CSDIndividual:
         self.wordlength = wordlength
         self.order = order
         self.n_digits = n_digits
+        self.fitness = None
         if genome is None:
             self.genome = []
         else:
@@ -44,7 +45,9 @@ class CSDIndividual:
         return w, H
 
     def get_fitness(self, fitness, target, mode):
-        return fitness(self, target, mode)
+        if self.fitness is None:
+            self.fitness = fitness(self, target, mode)
+        return self.fitness
 
 
 def init(wordlength, order, n_digits):
@@ -188,7 +191,7 @@ def selection(pop, mu, fitness, target, mode):
     """
     Perform truncated selection of best μ individuals
     """
-    pop.sort(key=lambda x: fitness(x, target, mode), reverse=True)
+    pop.sort(key=lambda x: x.get_fitness(fitness, target, mode), reverse=True)
     return pop[:mu]
 
 def ES(
