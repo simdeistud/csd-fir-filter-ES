@@ -66,106 +66,71 @@ def init_pop(n_pop, wordlength, order, n_digits):
     return [init(wordlength, order, n_digits) for _ in range(n_pop)]
 
 
+
 def mut(individual, mutation_rate=None):
     """
     Perform CSD-aware mutation on the genome.
     Mutation respects:
         - canonical CSD (no adjacent ±1)
         - maximum number of non-zero digits per word (n_digits)
-    By default, mutation_rate = 1/wordlength
+    By default, mutation_rate = 1 / wordlength
     """
     if mutation_rate is None:
         mutation_rate = 1 / individual.wordlength
 
-    def get_least_significant_nonzero_index(coeff):
-        return next((i for i in range(len(coeff) - 1, -1, -1) if coeff[i] != 0), None)
+    rand = random.random
+    pick = random.choice
+    n_digits = individual.n_digits
+
+    ALT = {
+        -1: (0, 1),
+         0: (-1, 1),
+         1: (-1, 0),
+    }
 
     mutated = []
-    # Split into CSD words
-    for coeff in individual.get_coefficients():
-        curr_d = sum(1 for x in coeff if x != 0)
-        mutated_coeff = coeff[:]  # copy
 
-        for i in range(len(mutated_coeff)):
-            if random.random() < mutation_rate:
+    for word in individual.get_coefficients():
+        word = word[:]  # copy
+        n = len(word)
 
-                # pick alternative symbol
-                choices = [-1, 0, 1]
-                choices.remove(mutated_coeff[i])
-                choice = random.choice(choices)
+        # Track nonzero positions explicitly
+        nonzero = {idx for idx, v in enumerate(word) if v != 0}
 
-                # Case 1: modifying a nonzero digit
-                if mutated_coeff[i] != 0:
-                    mutated_coeff[i] = choice
-                    if choice == 0:
-                        curr_d -= 1
-                    # if choice stays ±1, curr_d unchanged
-                    continue
+        for i in range(n):
+            if rand() >= mutation_rate:
+                continue
 
-                # Case 2: digit is zero → insert ±1
-                # FIRST BIT
-                if i == 0:
-                    if mutated_coeff[i + 1] != 0:
-                        mutated_coeff[i + 1] = 0
-                        curr_d -= 1
-                    elif curr_d == individual.n_digits:
-                        mutated_coeff[get_least_significant_nonzero_index(mutated_coeff)] = 0
-                        curr_d -= 1
-                    mutated_coeff[i] = choice
-                    curr_d += 1
-                    continue
+            old = word[i]
+            new = pick(ALT[old])
 
-                    # LAST BIT
-                if i == len(mutated_coeff) - 1:
-                    if mutated_coeff[i - 1] != 0:
-                        mutated_coeff[i - 1] = 0
-                        curr_d -= 1
-                    elif curr_d == individual.n_digits:
-                        mutated_coeff[get_least_significant_nonzero_index(mutated_coeff)] = 0
-                        curr_d -= 1
-                    mutated_coeff[i] = choice
-                    curr_d += 1
-                    continue
+            # Case 1: mutate existing nonzero digit
+            if old != 0:
+                word[i] = new
+                if new == 0:
+                    nonzero.remove(i)
+                continue
 
-                    # MIDDLE REGION
-                left = mutated_coeff[i - 1]
-                right = mutated_coeff[i + 1]
+            # Case 2: insert ±1 into a zero digit
+            # Enforce canonical CSD: clear adjacent nonzeros
+            for j in (i - 1, i + 1):
+                if 0 <= j < n and word[j] != 0:
+                    word[j] = 0
+                    nonzero.remove(j)
 
-                # both neighbors nonzero
-                if left != 0 and right != 0:
-                    mutated_coeff[i - 1] = 0
-                    mutated_coeff[i + 1] = 0
-                    curr_d -= 2
-                    mutated_coeff[i] = choice
-                    curr_d += 1
-                    continue
+            # Enforce max nonzero-digit budget
+            if len(nonzero) == n_digits:
+                lsnz = max(nonzero)   # least significant nonzero index
+                word[lsnz] = 0
+                nonzero.remove(lsnz)
 
-                # only left nonzero
-                if left != 0:
-                    mutated_coeff[i - 1] = 0
-                    curr_d -= 1
-                    mutated_coeff[i] = choice
-                    curr_d += 1
-                    continue
+            word[i] = new
+            nonzero.add(i)
 
-                # only right nonzero
-                if right != 0:
-                    mutated_coeff[i + 1] = 0
-                    curr_d -= 1
-                    mutated_coeff[i] = choice
-                    curr_d += 1
-                    continue
+        mutated.append(word)
 
-                # both neighbors zero
-                if curr_d == individual.n_digits:
-                    mutated_coeff[get_least_significant_nonzero_index(mutated_coeff)] = 0
-                    curr_d -= 1
-                mutated_coeff[i] = choice
-                curr_d += 1
+    individual.genome = [x for word in mutated for x in word]
 
-        mutated.append(mutated_coeff)
-    # Re-flatten: concatenate mutated words
-    individual.genome = [x for coeff in mutated for x in coeff]
 
 def fit(individual, target, mode="complex"):
     w, Hi = freqz(individual.get_real_coefficients())  # Hi : complex array
