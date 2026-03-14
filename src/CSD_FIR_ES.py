@@ -97,6 +97,12 @@ def mut(individual, mutation_rate=None):
         # Track nonzero positions explicitly
         nonzero = {idx for idx, v in enumerate(word) if v != 0}
 
+        # If coefficient is close to 0, it has a mutation_rate% chance of becoming exactly 0
+        if len(nonzero) == 1 and word[-1] != 0 and rand() < mutation_rate:
+            mutated.append([0]*n)
+            continue
+
+
         for i in range(n):
             if rand() >= mutation_rate:
                 continue
