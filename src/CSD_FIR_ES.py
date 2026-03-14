@@ -40,13 +40,13 @@ class CSDIndividual:
             for c in self.get_coefficients()
         ]
 
-    def get_response(self, worN=2048):
+    def get_response(self, worN):
         w, H = freqz(self.get_real_coefficients(), worN=worN)
         return w, H
 
-    def get_fitness(self, fitness, target, mode):
+    def get_fitness(self, fitness, target, mode, worN):
         if self.fitness is None:
-            self.fitness = fitness(self, target, mode)
+            self.fitness = fitness(self, target, mode, worN)
         return self.fitness
 
 
@@ -114,7 +114,7 @@ def mut(individual, mutation_rate=None):
             # Case 2: insert ±1 into a zero digit
             # Enforce canonical CSD: clear adjacent nonzeros
             for j in (i - 1, i + 1):
-                if 0 <= j < n and word[j] != 0:
+                if n > j >= 0 != word[j]:
                     word[j] = 0
                     nonzero.remove(j)
 
@@ -132,8 +132,8 @@ def mut(individual, mutation_rate=None):
     individual.genome = [x for word in mutated for x in word]
 
 
-def fit(individual, target, mode="complex"):
-    w, Hi = freqz(individual.get_real_coefficients())  # Hi : complex array
+def fit(individual, target, mode, worN):
+    w, Hi = freqz(b=individual.get_real_coefficients(), worN=worN)  # Hi : complex array
     Ht = np.array([target(wi) for wi in w], dtype=complex)
 
     if mode == "complex":
@@ -152,11 +152,11 @@ def fit(individual, target, mode="complex"):
 
     return -np.linalg.norm(diff)  # sqrt(sum |diff|^2)
 
-def selection(pop, mu, fitness, target, mode):
+def selection(pop, mu, fitness, target, mode, worN):
     """
     Perform truncated selection of best μ individuals
     """
-    pop.sort(key=lambda x: x.get_fitness(fitness, target, mode), reverse=True)
+    pop.sort(key=lambda x: x.get_fitness(fitness, target, mode, worN), reverse=True)
     return pop[:mu]
 
 def ES(
@@ -168,6 +168,7 @@ def ES(
         n_digits,
         target,
         mode="complex",
+        worN=512,
         mutation_rate=None,
         plus_strategy=False,
 ):
@@ -215,12 +216,12 @@ def ES(
         if plus_strategy:
             # (μ + λ)-ES: parents + offspring compete
             combined = pop + offspring
-            pop = selection(combined, mu, fit, target, mode)
+            pop = selection(combined, mu, fit, target, mode, worN)
         else:
             # (μ, λ)-ES: only offspring compete
-            pop = selection(offspring, mu, fit, target, mode)
+            pop = selection(offspring, mu, fit, target, mode, worN)
         best_hist.append(pop[0])
 
     # --- Return best solution ---
-    best = selection(pop, 1, fit, target, mode)[0]
+    best = selection(pop, 1, fit, target, mode, worN)[0]
     return best, best_hist
