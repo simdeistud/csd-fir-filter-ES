@@ -70,7 +70,7 @@ def init_pop(n_pop, wordlength, order, n_digits):
 
 
 
-def mut(individual, mutation_rate=None):
+def mut(individual, mutation_rate):
     """
     Perform CSD-aware mutation on the genome.
     Mutation respects:
@@ -78,9 +78,6 @@ def mut(individual, mutation_rate=None):
         - maximum number of non-zero digits per word (n_digits)
     By default, mutation_rate = 1 / wordlength
     """
-    if mutation_rate is None:
-        mutation_rate = 1 / individual.wordlength
-
     rand = random.random
     pick = random.choice
     n_digits = individual.n_digits
@@ -212,6 +209,9 @@ def ES(
         - final population
     """
 
+    if mutation_rate is None:
+        mutation_rate = 1 / wordlength
+
     # --- 1. Initialize μ parents ---
     pop = init_pop(mu, wordlength, order, n_digits)
 
@@ -219,7 +219,6 @@ def ES(
 
     # --- 2. Evolution loop ---
     for _ in range(n_generations):
-
         # --- Generate λ offspring ---
         offspring = []
         for _ in range(lam):
