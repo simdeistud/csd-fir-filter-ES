@@ -1,6 +1,9 @@
 import random
+from math import inf
+
 import numpy as np
 from scipy.signal import freqz
+from error_metrics import minimax, mae, mse, rmse
 
 class CSDIndividual:
     def __init__(self, wordlength, order, n_digits, genome=None):
@@ -44,9 +47,9 @@ class CSDIndividual:
         w, H = freqz(self.get_real_coefficients(), worN=worN)
         return w, H
 
-    def get_fitness(self, fitness, target, mode, worN):
+    def get_fitness(self, fitness, target, mode, error_metric, worN):
         if self.fitness is None:
-            self.fitness = fitness(self, target, mode, worN)
+            self.fitness = fitness(self, target, mode, error_metric, worN)
         return self.fitness
 
 
@@ -138,31 +141,41 @@ def mut(individual, mutation_rate=None):
     individual.genome = [x for word in mutated for x in word]
 
 
-def fit(individual, target, mode, worN):
+def fit(individual, target, mode, error_metric, worN):
     w, Hi = freqz(b=individual.get_real_coefficients(), worN=worN)  # Hi : complex array
     Ht = np.array([target(wi) for wi in w], dtype=complex)
+    err = []
 
-    if mode == "complex":
-        diff = Ht - Hi
+    match mode:
+        case "complex":
+            err = Ht - Hi
+        case "magnitude":
+            err = np.abs(Ht) - np.abs(Hi)
+        case "phase":
+            # unwrap to avoid 2π discontinuities
+            ph_t = np.unwrap(np.angle(Ht))
+            ph_i = np.unwrap(np.angle(Hi))
+            err = ph_t - ph_i
+        case _:
+            raise ValueError("mode must be 'complex', 'magnitude', or 'phase'")
 
-    elif mode == "magnitude":
-        diff = np.abs(Ht) - np.abs(Hi)
+    match error_metric:
+        case "minimax":
+            return -minimax(err)
+        case "mae":
+            return -mae(err)
+        case "mse":
+            return -mse(err)
+        case "rmse":
+            return -rmse(err)
+        case _:
+            raise ValueError("error_metric must be 'minimax', 'mae', 'mse', or 'rmse'")
 
-    elif mode == "phase":
-        # unwrap to avoid 2π discontinuities
-        ph_t = np.unwrap(np.angle(Ht))
-        ph_i = np.unwrap(np.angle(Hi))
-        diff = ph_t - ph_i
-    else:
-        raise ValueError("mode must be 'complex', 'magnitude', or 'phase'")
-
-    return -np.linalg.norm(diff)  # sqrt(sum |diff|^2)
-
-def selection(pop, mu, fitness, target, mode, worN):
+def selection(pop, mu, fitness, target, mode, error_metric, worN):
     """
     Perform truncated selection of best μ individuals
     """
-    pop.sort(key=lambda x: x.get_fitness(fitness, target, mode, worN), reverse=True)
+    pop.sort(key=lambda x: x.get_fitness(fitness, target, mode, error_metric, worN), reverse=True)
     return pop[:mu]
 
 def ES(
@@ -173,8 +186,9 @@ def ES(
         order,
         n_digits,
         target,
-        mode="complex",
-        worN=512,
+        mode="magnitude",
+        error_metric="minimax",
+        worN=128,
         mutation_rate=None,
         plus_strategy=False,
 ):
@@ -222,12 +236,12 @@ def ES(
         if plus_strategy:
             # (μ + λ)-ES: parents + offspring compete
             combined = pop + offspring
-            pop = selection(combined, mu, fit, target, mode, worN)
+            pop = selection(combined, mu, fit, target, mode, error_metric, worN)
         else:
             # (μ, λ)-ES: only offspring compete
-            pop = selection(offspring, mu, fit, target, mode, worN)
+            pop = selection(offspring, mu, fit, target, mode, error_metric, worN)
         best_hist.append(pop[0])
 
     # --- Return best solution ---
-    best = selection(pop, 1, fit, target, mode, worN)[0]
+    best = selection(pop, 1, fit, target, mode, error_metric, worN)[0]
     return best, best_hist
